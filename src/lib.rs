@@ -939,16 +939,27 @@ impl From<isize> for FluentValue {
     }
 }
 
+rental! {
+    mod my_rentals {
+        use super::*;
+
+        #[rental]
+        pub struct BundleRental {
+            bundle: String,
+            fluent_bundle: FluentBundle<'bundle>,
+        }
+    }
+}
 
 ///
 /// test interface
 ///
 #[wasm_bindgen]
 struct TestInterface {
-    cache: HashMap<String, FluentBundle>
+    cache: HashMap<String, my_rentals::BundleRental>
 }
 
-#[wasm_bindgen]
+///#[wasm_bindgen]
 impl TestInterface {
     pub fn new() -> Self {
         TestInterface {
@@ -956,13 +967,14 @@ impl TestInterface {
         }
     }
 
-    pub fn create_bundle(
+    pub fn create_bundle<S: ToString>(
         &mut self,
         bundle_id: String,
-        locales: String
+        locales: &[S]
     ) -> bool {
-        let mut bundle = FluentBundle::new(&[locales]);
-        self.cache.insert(bundle_id, bundle);
+        //let mut bundle = FluentBundle::new(locales);
+        let rental_bundle = my_rentals::BundleRental::new(bundle_id, |bundle| FluentBundle::new(locales));
+        self.cache.insert(bundle_id, rental_bundle);
         return true;
     }
 
@@ -971,32 +983,32 @@ impl TestInterface {
         bundle_id: String,
         id: &str
     ) -> bool {
-        let bundle = self.cache.get(&bundle_id).unwrap();
-        return bundle.has_message(id);
+        let rental_bundle = self.cache.get(&bundle_id).unwrap();
+        return rental_bundle.fluent_bundle.has_message(id);
     }
 
-    pub fn add_function(
+    pub fn add_function<F>(
         &self,
         bundle_id: String,
-        id: &str, func: F
+        id: &str,
+        func: F
     ) -> Result<(), FluentError>
     where
-        F: 'bundle
-            + Fn(&[Option<FluentValue>], &HashMap<&str, FluentValue>) -> Option<FluentValue>
+        F: Fn(&[Option<FluentValue>], &HashMap<&str, FluentValue>) -> Option<FluentValue>
             + Sync
             + Send,
     {
-        let bundle = self.cache.get(&bundle_id).unwrap();
-        return bundle.add_function(id, func);
+        let rental_bundle = self.cache.get(&bundle_id).unwrap();
+        return rental_bundle.fluent_bundle.add_function(id, func);
     }
 
     pub fn add_resource(
         &self,
         bundle_id: String,
-        res: &'bundle FluentResource
+        res: &FluentResource
     ) -> Result<(), Vec<FluentError>> {
-        let bundle = self.cache.get(&bundle_id).unwrap();
-        return bundle.add_resource(res);
+        let rental_bundle = self.cache.get(&bundle_id).unwrap();
+        return rental_bundle.fluent_bundle.add_resource(res);
     }
 
     pub fn format(
@@ -1005,8 +1017,8 @@ impl TestInterface {
         path: &str,
         args: Option<&HashMap<&str, FluentValue>>
     ) -> Option<(String, Vec<FluentError>)> {
-        let bundle = self.cache.get(&bundle_id).unwrap();
-        return bundle.format(path, args);
+        let rental_bundle = self.cache.get(&bundle_id).unwrap();
+        return rental_bundle.fluent_bundle.format(path, args);
     }
 
     pub fn compound(
@@ -1015,7 +1027,7 @@ impl TestInterface {
         message_id: &str,
         args: Option<&HashMap<&str, FluentValue>>
     ) -> Option<(Message, Vec<FluentError>)> {
-        let bundle = self.cache.get(&bundle_id).unwrap();
-        return bundle.compound(message_id, args);
+        let rental_bundle = self.cache.get(&bundle_id).unwrap();
+        return rental_bundle.fluent_bundle.compound(message_id, args);
     }
 }
