@@ -951,6 +951,10 @@ rental! {
     }
 }
 
+struct BundleRentalHax<'bundle> {
+    pub fluent_bundle: FluentBundle<'bundle>,
+}
+
 ///
 /// test interface
 ///
@@ -959,7 +963,7 @@ struct TestInterface {
     cache: HashMap<String, my_rentals::BundleRental>
 }
 
-///#[wasm_bindgen]
+//#[wasm_bindgen]
 impl TestInterface {
     pub fn new() -> Self {
         TestInterface {
@@ -967,10 +971,10 @@ impl TestInterface {
         }
     }
 
-    pub fn create_bundle<S: ToString>(
+    pub fn create_bundle(
         &mut self,
         bundle_id: String,
-        locales: &[S]
+        locales: &[String]
     ) -> bool {
         //let mut bundle = FluentBundle::new(locales);
         let rental_bundle = my_rentals::BundleRental::new(bundle_id, |bundle| FluentBundle::new(locales));
@@ -984,7 +988,8 @@ impl TestInterface {
         id: &str
     ) -> bool {
         let rental_bundle = self.cache.get(&bundle_id).unwrap();
-        return rental_bundle.fluent_bundle.has_message(id);
+        let rental_bundle_exposed : BundleRentalHax = unsafe { std::mem::transmute(rental_bundle) };
+        return rental_bundle_exposed.fluent_bundle.has_message(id);
     }
 
     pub fn add_function<F>(
@@ -999,7 +1004,8 @@ impl TestInterface {
             + Send,
     {
         let rental_bundle = self.cache.get(&bundle_id).unwrap();
-        return rental_bundle.fluent_bundle.add_function(id, func);
+        let rental_bundle_exposed : BundleRentalHax = unsafe { std::mem::transmute(rental_bundle) };
+        return rental_bundle_exposed.fluent_bundle.add_function(id, func);
     }
 
     pub fn add_resource(
@@ -1008,7 +1014,8 @@ impl TestInterface {
         res: &FluentResource
     ) -> Result<(), Vec<FluentError>> {
         let rental_bundle = self.cache.get(&bundle_id).unwrap();
-        return rental_bundle.fluent_bundle.add_resource(res);
+        let rental_bundle_exposed : BundleRentalHax = unsafe { std::mem::transmute(rental_bundle) };
+        return rental_bundle_exposed.fluent_bundle.add_resource(res);
     }
 
     pub fn format(
@@ -1018,7 +1025,8 @@ impl TestInterface {
         args: Option<&HashMap<&str, FluentValue>>
     ) -> Option<(String, Vec<FluentError>)> {
         let rental_bundle = self.cache.get(&bundle_id).unwrap();
-        return rental_bundle.fluent_bundle.format(path, args);
+        let rental_bundle_exposed : BundleRentalHax = unsafe { std::mem::transmute(rental_bundle) };
+        return rental_bundle_exposed.fluent_bundle.format(path, args);
     }
 
     pub fn compound(
@@ -1028,6 +1036,7 @@ impl TestInterface {
         args: Option<&HashMap<&str, FluentValue>>
     ) -> Option<(Message, Vec<FluentError>)> {
         let rental_bundle = self.cache.get(&bundle_id).unwrap();
-        return rental_bundle.fluent_bundle.compound(message_id, args);
+        let rental_bundle_exposed : BundleRentalHax = unsafe { std::mem::transmute(rental_bundle) };
+        return rental_bundle_exposed.fluent_bundle.compound(message_id, args);
     }
 }
