@@ -16,6 +16,7 @@ use std::cell::RefCell;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::{Entry as HashEntry, HashMap};
 use std::hash::{Hash, Hasher};
+use elsa::FrozenMap;
 
 use fluent_locale::{negotiate_languages, NegotiationStrategy};
 use fluent_syntax::ast;
@@ -95,6 +96,7 @@ pub struct Message {
 /// [`compound`]: ./struct.FluentBundle.html#method.compound
 /// [`add_resource`]: ./struct.FluentBundle.html#method.add_resource
 /// [`Option<T>`]: http://doc.rust-lang.org/std/option/enum.Option.html
+#[derive(Debug)]
 pub struct FluentBundle<'bundle> {
     pub locales: Vec<String>,
     pub entries: HashMap<String, Entry<'bundle>>,
@@ -943,100 +945,25 @@ rental! {
     mod my_rentals {
         use super::*;
 
-        #[rental]
-        pub struct BundleRental {
-            bundle: String,
-            fluent_bundle: FluentBundle<'bundle>,
+        #[rental(covariant, debug)]
+        pub struct LocalizationInterface {
+            resources: FrozenMap<String, Box<FluentResource>>,
+            bundles: HashMap<String, FluentBundle<'resources>>,
         }
     }
 }
 
-struct BundleRentalHax<'bundle> {
-    pub fluent_bundle: FluentBundle<'bundle>,
-}
-
-///
-/// test interface
-///
 #[wasm_bindgen]
-struct TestInterface {
-    cache: HashMap<String, my_rentals::BundleRental>
-}
+#[derive(Debug)]
+pub struct LocalizationInterface(my_rentals::LocalizationInterface);
 
-//#[wasm_bindgen]
-impl TestInterface {
+#[wasm_bindgen]
+impl LocalizationInterface {
     pub fn new() -> Self {
-        TestInterface {
-            cache: HashMap::new()
+        LocalizationInterface {
+            resources: vec![],
+            bundles: vec![],
         }
     }
-
-    pub fn create_bundle(
-        &mut self,
-        bundle_id: String,
-        locales: &[String]
-    ) -> bool {
-        //let mut bundle = FluentBundle::new(locales);
-        let rental_bundle = my_rentals::BundleRental::new(bundle_id, |bundle| FluentBundle::new(locales));
-        self.cache.insert(bundle_id, rental_bundle);
-        return true;
-    }
-
-    pub fn has_message(
-        &self,
-        bundle_id: String,
-        id: &str
-    ) -> bool {
-        let rental_bundle = self.cache.get(&bundle_id).unwrap();
-        let rental_bundle_exposed : BundleRentalHax = unsafe { std::mem::transmute(rental_bundle) };
-        return rental_bundle_exposed.fluent_bundle.has_message(id);
-    }
-
-    pub fn add_function<F>(
-        &self,
-        bundle_id: String,
-        id: &str,
-        func: F
-    ) -> Result<(), FluentError>
-    where
-        F: Fn(&[Option<FluentValue>], &HashMap<&str, FluentValue>) -> Option<FluentValue>
-            + Sync
-            + Send,
-    {
-        let rental_bundle = self.cache.get(&bundle_id).unwrap();
-        let rental_bundle_exposed : BundleRentalHax = unsafe { std::mem::transmute(rental_bundle) };
-        return rental_bundle_exposed.fluent_bundle.add_function(id, func);
-    }
-
-    pub fn add_resource(
-        &self,
-        bundle_id: String,
-        res: &FluentResource
-    ) -> Result<(), Vec<FluentError>> {
-        let rental_bundle = self.cache.get(&bundle_id).unwrap();
-        let rental_bundle_exposed : BundleRentalHax = unsafe { std::mem::transmute(rental_bundle) };
-        return rental_bundle_exposed.fluent_bundle.add_resource(res);
-    }
-
-    pub fn format(
-        &self,
-        bundle_id: String,
-        path: &str,
-        args: Option<&HashMap<&str, FluentValue>>
-    ) -> Option<(String, Vec<FluentError>)> {
-        let rental_bundle = self.cache.get(&bundle_id).unwrap();
-        let rental_bundle_exposed : BundleRentalHax = unsafe { std::mem::transmute(rental_bundle) };
-        return rental_bundle_exposed.fluent_bundle.format(path, args);
-    }
-
-    pub fn compound(
-        &self,
-        bundle_id: String,
-        message_id: &str,
-        args: Option<&HashMap<&str, FluentValue>>
-    ) -> Option<(Message, Vec<FluentError>)> {
-        let rental_bundle = self.cache.get(&bundle_id).unwrap();
-        let rental_bundle_exposed : BundleRentalHax = unsafe { std::mem::transmute(rental_bundle) };
-        return rental_bundle_exposed.fluent_bundle.compound(message_id, args);
-    }
 }
+
