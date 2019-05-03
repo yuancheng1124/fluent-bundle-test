@@ -140,6 +140,10 @@ impl<'bundle> FluentBundle<'bundle> {
         }
     }
 
+    pub fn formats(&self, id: String) -> String {
+        format!("This is a value for a key {}", id)
+    }
+
     /// Returns true if this bundle contains a message with the given id.
     ///
     /// # Examples
@@ -967,7 +971,7 @@ impl LocalizationInterface {
 
     pub fn add_bundle(&mut self, bundle_id: String, locales: String) {
         let bundle = FluentBundle::new(&[locales]);
-        self.0.rent_mut(|bundles| bundles.insert(bundle_id, bundle));
+        self.0.rent_mut(|bundles| { bundles.insert(bundle_id, bundle); });
     }
 
     pub fn add_resource(&self, source_file: String, source: String) {
@@ -989,52 +993,17 @@ impl LocalizationInterface {
         return value.to_string();
     }
 
-    /*pub fn compound_value(&self, bundle_id: String, id: &str) -> String {
+    pub fn compound_value(&self, bundle_id: String, id: &str) -> String {
         let fields = self.0.all();
         let bundle = fields.bundles.get(&bundle_id).unwrap();
         let (message, _) = bundle.compound(id, None).unwrap();
-        return message;
-    }*/
-}
+        return  message.value.unwrap();
+    }
 
-
-/*rental! {
-    mod my_rentals {
-        use super::*;
-
-        #[rental(covariant)]
-        pub struct LocalizationInterface {
-            resources: Box<FrozenMap<String, Box<FluentResource>>>,
-            bundles: HashMap<String, FluentBundle<'resources>>,
-        }
+    pub fn compound_attribute_value(&self, bundle_id: String, id: &str, attribute: &str) -> String {
+        let fields = self.0.all();
+        let bundle = fields.bundles.get(&bundle_id).unwrap();
+        let (message, _) = bundle.compound(id, None).unwrap();
+        return message.attributes.get(attribute).unwrap().to_string();
     }
 }
-
-#[wasm_bindgen]
-pub struct LocalizationInterface(my_rentals::LocalizationInterface);
-
-#[wasm_bindgen]
-impl LocalizationInterface {
-    pub fn new() -> Self {
-        Self(my_rentals::LocalizationInterface::new(
-                Box::new(FrozenMap::new()),
-                |_resources| { HashMap::new() }
-        ))
-    }
-
-    pub fn add_bundle(&mut self) {
-        let res = FluentResource::try_new(String::from("key = Value")).unwrap();
-        let bundle = FluentBundle::new(&["en-US"]);
-        let fields = self.0.all();
-        //self.0.rent(|bundles| bundles.insert(String::from("res1.ftl"), Box::new(res)));
-        //fields.resources.insert(String::from("res1.ftl"), Box::new(res));
-        //fields.bundles.insert(String::from("bundle1"), bundle);
-    }
-
-    pub fn format_value(&self, id: &str) -> String {
-        let fields = self.0.all();
-        let bundle = fields.bundles.get("bundle1").unwrap();
-        let (value, _) = bundle.format(id, None).unwrap();
-        return value.to_string();
-    }
-}*/
